@@ -41,10 +41,6 @@ O **ListaChatGPT** é um assistente conversacional que responde a perguntas com 
 ┣ 📜requirements.txt # Dependências do projeto
 ┗ 📂data # (Opcional) PDFs enviados
 
-bash
-Copy
-Edit
-
 ## ▶️ Como Rodar Localmente
 
 ### 1. Clone o repositório
