@@ -49,6 +49,18 @@ Edit
 
 ### 1. Clone o repositório
 
-```bash
 git clone https://github.com/seu-usuario/listachatgpt.git
-cd listachatgpt
+cd listachatgpt 
+
+### 2. Instale as dependências
+bash
+pip install -r requirements.txt
+
+### 3. Configure a chave da API da OpenAI
+Crie um arquivo .env ou defina no terminal:
+bash
+export OPENAI_API_KEY="sua-chave-aqui"
+
+### 4. Execute o projeto
+bash
+streamlit run app.py
