@@ -1,0 +1,6 @@
+PyPDF2
+sentence-transformers
+openai==0.27.8
+streamlit
+annoy
+scikit-learn

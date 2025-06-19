@@ -1,0 +1,36 @@
+Acesso da aplicacao: https://as05-rafael.streamlit.app/
+
+Instrucoes de execucao:
+
+
+Execucao no streamlit:
+-Deve ser feito o upload para o git dos dois arquivos "app.py" e "requirements.txt"
+-logue no strealit com sua conta do GitHub
+-altere nas configuracoes do app streamlit a sua chave da API do open AI
+-faca o deploy
+-streamlit identifica as bibiliotecas do requirements.txt para realizer o download das mesmas
+-sua aplicacao deve funcionar normalmente
+
+================================================================================================
+
+Execucao local:
+-python (pelo menos 3.8)
+-Ferraments de compilacao Microsoft C++
+-gerenciador de ambientes virtuais (pip, conda, etc)
+-Crie um ambiente virtual (python -m venv nomeDoAmbiente)
+-Instale as dependecias contidas no requirements.txt(pip install -r requirements.txt)
+-troque na linha 12 o "os.getenv("OPENAI_API_KEY") pela sua chave da API 
+	-Exemplo:openai.api_key = "sua chave aqui"
+-salve o arquivo como "app.py"
+-execute no terminal o commando: streamlit run app.py
+-acesse no "http://localhost8501"
+
+
+================================================================================================
+
+Como usar:
+-envie 1 ou mais PDF's
+-clique em enviar PDF's
+-Aguarde o president
+-faca a pergunta
+
