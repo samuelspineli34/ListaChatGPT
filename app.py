@@ -9,8 +9,7 @@ from sklearn.decomposition import PCA
 from dotenv import load_dotenv
 import json
 
-load_dotenv()
-
+load_dotenv('chave.env')
 api_key = os.getenv("OPENAI_API_KEY")
 
 if not api_key:
