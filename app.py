@@ -9,9 +9,25 @@ import re
 from sklearn.decomposition import PCA
 from dotenv import load_dotenv
 import os
+import openai
+import streamlit as st
 
-load_dotenv()  # Carrega variáveis do .env
+# Carrega variáveis de ambiente
+load_dotenv()
+
+# Obtém a chave API
 api_key = os.getenv("OPENAI_API_KEY")
+
+# Verifica se a chave existe
+if not api_key:
+    st.error("""Erro: Chave API não encontrada. Verifique se:
+            1. Você criou um arquivo .env
+            2. Adicionou OPENAI_API_KEY=sua_chave
+            3. O arquivo está na pasta correta""")
+    st.stop()
+
+# Configura a chave para a biblioteca OpenAI
+openai.api_key = api_key
 # Cachear o modelo
 @st.cache_resource
 def load_model():
