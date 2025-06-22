@@ -2,23 +2,32 @@ import os
 import numpy as np
 from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer
+import openai
 import streamlit as st
 from annoy import AnnoyIndex
 import re
 from sklearn.decomposition import PCA
-from dotenv import load_dotenv
-import json
+from dotenv import load_dotenv # Importa load_dotenv
 
+# Carrega variáveis de ambiente do arquivo 'chave.env'
+# Esta é a correção crucial para o problema da chave não encontrada.
 load_dotenv('chave.env')
+
+# Obtém a chave da API OpenAI
 api_key = os.getenv("OPENAI_API_KEY")
 
+# Verifica se a chave existe
 if not api_key:
-    st.error("""Erro: Chave API não encontrada. Verifique se:
-                1. Você criou um arquivo .env
-                2. Adicionou OPENAI_API_KEY=sua_chave
-                3. O arquivo está na pasta correta""")
-    st.stop()
+    st.error("""Erro: Chave API OpenAI não encontrada. Verifique se:
+                1. Você criou um arquivo 'chave.env'
+                2. Adicionou OPENAI_API_KEY=sua_chave_aqui no arquivo 'chave.env'
+                3. O arquivo 'chave.env' está na mesma pasta do 'app.py'""")
+    st.stop() # Interrompe a execução do Streamlit se a chave não for encontrada
 
+# Configurar a chave da API para a biblioteca OpenAI
+openai.api_key = api_key
+
+# Cachear o modelo SentenceTransformer
 @st.cache_resource
 def load_model():
     return SentenceTransformer('all-MiniLM-L6-v2')
@@ -69,11 +78,15 @@ def process_pdfs(pdf_files):
     pca = PCA(n_components=n_components)
     reduced_embeddings = pca.fit_transform(embeddings)
 
+    # Criar o índice Annoy
     vector_length = reduced_embeddings.shape[1]
     annoy_index = AnnoyIndex(vector_length, 'angular')
     for i, vector in enumerate(reduced_embeddings):
         annoy_index.add_item(i, vector)
-    annoy_index.build(10)
+    # A variável `num_trees` do Annoy (aqui como 100) é para a precisão da busca,
+    # não está diretamente ligada ao PCA. O padrão 10 é geralmente bom,
+    # mas 100 pode aumentar a precisão com custo de tempo de construção.
+    annoy_index.build(100) # Use 100 como o default para o número de iterações/árvores, conforme sua instrução.
 
     return all_sentences, reduced_embeddings, annoy_index, pca
 
@@ -84,38 +97,24 @@ def search_similar_sentences(query, pca, annoy_index, sentences, top_k=5):
     results = [sentences[idx] for idx in indices]
     return results
 
-async def generate_response(question, context):
-    prompt = f"Contexto:\n{context}\n\nPergunta:\n{question}"
-    chatHistory = []
-    chatHistory.append({"role": "user", "parts": [{"text": prompt}]})
-    payload = {"contents": chatHistory}
-    apiKey = ""
-    apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}"
-
+def generate_response(question, context):
+    messages = [
+        {"role": "system",
+         "content": "Você é um assistente inteligente que usa o contexto fornecido para responder às perguntas do usuário de forma clara e concisa."},
+        {"role": "user", "content": f"Contexto:\n{context}\n\nPergunta:\n{question}"}
+    ]
     try:
-        simulated_response = {
-            "candidates": [
-                {
-                    "content": {
-                        "parts": [
-                            {"text": "Esta é uma resposta simulada da API do Gemini baseada no seu contexto e pergunta."}
-                        ]
-                    }
-                }
-            ]
-        }
-        
-        result = simulated_response
-
-        if result.get("candidates") and result["candidates"][0].get("content") and result["candidates"][0]["content"].get("parts"):
-            return result["candidates"][0]["content"]["parts"][0]["text"]
-        else:
-            st.error("Erro: A estrutura da resposta da API do Gemini é inesperada ou o conteúdo está faltando.")
-            return "Não foi possível gerar uma resposta para sua pergunta."
-
+        response = openai.ChatCompletion.create(
+            model='gpt-3.5-turbo', # Mantido o modelo original do GPT-3.5-turbo
+            messages=messages,
+            max_tokens=200,
+            temperature=0.7,
+            n=1,
+        )
+        return response.choices[0].message['content'].strip()
     except Exception as e:
-        st.error(f"Ocorreu um erro ao chamar a API do Gemini: {e}")
-        return "Desculpe, não consegui processar sua solicitação no momento."
+        st.error(f"Ocorreu um erro ao chamar a API OpenAI: {e}")
+        return "Desculpe, não consegui processar sua solicitação no momento. Por favor, verifique sua chave API ou o status do serviço."
 
 def main():
     st.title("Lista Chat GPT")
@@ -146,25 +145,21 @@ def main():
         if st.button("Enviar Pergunta"):
             if question:
                 with st.spinner('Gerando resposta...'):
-                    similar_sentences = search_similar_sentences(
-                        question,
-                        st.session_state['pca'],
-                        st.session_state['annoy_index'],
-                        st.session_state['sentences']
-                    )
-                    context = "\n".join(similar_sentences)
-                    
-                    st.session_state['answer'] = "Gerando resposta..."
                     try:
-                        answer = "Esta é uma resposta simulada para teste local." # Substitua pela chamada real
-                        st.session_state['answer'] = answer
-
+                        similar_sentences = search_similar_sentences(
+                            question,
+                            st.session_state['pca'],
+                            st.session_state['annoy_index'],
+                            st.session_state['sentences']
+                        )
+                        context = "\n".join(similar_sentences)
+                        answer = generate_response(question, context)
+                        
+                        st.write("**Resposta:**")
+                        st.write(answer)
                     except Exception as e:
-                        st.error(f"Erro ao obter resposta da API: {e}")
-                        st.session_state['answer'] = "Não foi possível obter a resposta."
-
-                st.write("**Resposta:**")
-                st.write(st.session_state['answer'])
+                        st.error(f"Ocorreu um erro ao buscar o contexto ou gerar a resposta: {e}")
+                        st.write("**Resposta:** Desculpe, não foi possível gerar uma resposta no momento.")
             else:
                 st.warning("Por favor, digite uma pergunta.")
     else:
