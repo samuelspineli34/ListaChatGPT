@@ -2,40 +2,29 @@ import os
 import numpy as np
 from PyPDF2 import PdfReader
 from sentence_transformers import SentenceTransformer
-import openai
 import streamlit as st
 from annoy import AnnoyIndex
 import re
 from sklearn.decomposition import PCA
 from dotenv import load_dotenv
-import os
-import openai
-import streamlit as st
+import json
 
-# Carrega variáveis de ambiente
 load_dotenv()
 
-# Obtém a chave API
 api_key = os.getenv("OPENAI_API_KEY")
 
-# Verifica se a chave existe
 if not api_key:
     st.error("""Erro: Chave API não encontrada. Verifique se:
-            1. Você criou um arquivo .env
-            2. Adicionou OPENAI_API_KEY=sua_chave
-            3. O arquivo está na pasta correta""")
+                1. Você criou um arquivo .env
+                2. Adicionou OPENAI_API_KEY=sua_chave
+                3. O arquivo está na pasta correta""")
     st.stop()
 
-# Configura a chave para a biblioteca OpenAI
-openai.api_key = api_key
-# Cachear o modelo
 @st.cache_resource
 def load_model():
     return SentenceTransformer('all-MiniLM-L6-v2')
 
-
 model = load_model()
-
 
 def extract_text_from_pdf(pdf_file):
     reader = PdfReader(pdf_file)
@@ -46,12 +35,10 @@ def extract_text_from_pdf(pdf_file):
             text += page_text
     return text
 
-
 def split_sentences(text):
     sentence_endings = re.compile(r'(?<=[.!?])\s+')
     sentences = sentence_endings.split(text)
     return sentences
-
 
 def process_pdfs(pdf_files):
     all_sentences = []
@@ -83,7 +70,6 @@ def process_pdfs(pdf_files):
     pca = PCA(n_components=n_components)
     reduced_embeddings = pca.fit_transform(embeddings)
 
-    # Criar o índice Annoy
     vector_length = reduced_embeddings.shape[1]
     annoy_index = AnnoyIndex(vector_length, 'angular')
     for i, vector in enumerate(reduced_embeddings):
@@ -92,7 +78,6 @@ def process_pdfs(pdf_files):
 
     return all_sentences, reduced_embeddings, annoy_index, pca
 
-
 def search_similar_sentences(query, pca, annoy_index, sentences, top_k=5):
     query_embedding = model.encode([query])[0]
     query_embedding = pca.transform([query_embedding])[0]
@@ -100,22 +85,38 @@ def search_similar_sentences(query, pca, annoy_index, sentences, top_k=5):
     results = [sentences[idx] for idx in indices]
     return results
 
+async def generate_response(question, context):
+    prompt = f"Contexto:\n{context}\n\nPergunta:\n{question}"
+    chatHistory = []
+    chatHistory.append({"role": "user", "parts": [{"text": prompt}]})
+    payload = {"contents": chatHistory}
+    apiKey = ""
+    apiUrl = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={apiKey}"
 
-def generate_response(question, context):
-    messages = [
-        {"role": "system",
-         "content": "Você é um assistente inteligente que usa o contexto fornecido para responder às perguntas do usuário de forma clara e concisa."},
-        {"role": "user", "content": f"Contexto:\n{context}\n\nPergunta:\n{question}"}
-    ]
-    response = openai.ChatCompletion.create(
-        model='gpt-3.5-turbo',
-        messages=messages,
-        max_tokens=200,
-        temperature=0.7,
-        n=1,
-    )
-    return response.choices[0].message['content'].strip()
+    try:
+        simulated_response = {
+            "candidates": [
+                {
+                    "content": {
+                        "parts": [
+                            {"text": "Esta é uma resposta simulada da API do Gemini baseada no seu contexto e pergunta."}
+                        ]
+                    }
+                }
+            ]
+        }
+        
+        result = simulated_response
 
+        if result.get("candidates") and result["candidates"][0].get("content") and result["candidates"][0]["content"].get("parts"):
+            return result["candidates"][0]["content"]["parts"][0]["text"]
+        else:
+            st.error("Erro: A estrutura da resposta da API do Gemini é inesperada ou o conteúdo está faltando.")
+            return "Não foi possível gerar uma resposta para sua pergunta."
+
+    except Exception as e:
+        st.error(f"Ocorreu um erro ao chamar a API do Gemini: {e}")
+        return "Desculpe, não consegui processar sua solicitação no momento."
 
 def main():
     st.title("Lista Chat GPT")
@@ -153,14 +154,22 @@ def main():
                         st.session_state['sentences']
                     )
                     context = "\n".join(similar_sentences)
-                    answer = generate_response(question, context)
+                    
+                    st.session_state['answer'] = "Gerando resposta..."
+                    try:
+                        answer = "Esta é uma resposta simulada para teste local." # Substitua pela chamada real
+                        st.session_state['answer'] = answer
+
+                    except Exception as e:
+                        st.error(f"Erro ao obter resposta da API: {e}")
+                        st.session_state['answer'] = "Não foi possível obter a resposta."
+
                 st.write("**Resposta:**")
-                st.write(answer)
+                st.write(st.session_state['answer'])
             else:
                 st.warning("Por favor, digite uma pergunta.")
     else:
         st.info("Por favor, faça o upload de arquivos PDF e clique em 'Enviar PDFs' para começar.")
-
 
 if __name__ == "__main__":
     main()
