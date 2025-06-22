@@ -9,7 +9,7 @@ import re
 from sklearn.decomposition import PCA
 
 # Configurar a chave da API
-openai.api_key = os.getenv("OPENAI_API_KEY")
+openai.api_key = os.getenv("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")
 
 # Cachear o modelo
 @st.cache_resource
